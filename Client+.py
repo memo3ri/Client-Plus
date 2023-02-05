@@ -19,6 +19,14 @@ def get_config(file,name,value):
     i = file.get(f"{name}", f"{value}")
     return i
 
+def bubbleSort(time_list):
+    n = len(time_list)
+    # 遍历所有数组元素
+    for i in range(n):
+        for j in range(0, n-i-1):
+            if time_list[j] > time_list[j+1] :
+                time_list[j], time_list[j+1] = time_list[j+1], time_list[j]
+
 def read_basic_path():
     base = configparser.ConfigParser()
     if not os.path.exists("./base.ini"):
@@ -132,7 +140,7 @@ def read_url():
             update_config.read(f"{data_path}/Update/{i}/update.ini" ,encoding='utf-8')
             update_switch = get_config(update_config,"Update","update")
             if update_switch == "True":
-                url_type = get_config(update_config,"Update","url_type")
+                url_type = get_config(update_config,"Update","url_type").lower()
                 Streaming_download = get_config(update_config,"Update","Streaming_download")
                 url_ = get_config(update_config,"Update","url")
 
@@ -145,98 +153,145 @@ def read_url():
                         url = url_.split("agit.ai/")[1]
                         download_url_master = "https://agit.ai/" + url + "/archive/master.zip"
                         agit_update_url = ""
+                    elif url_type == "gitcode":
+                        url = url_.split("gitcode.net/")[1]
+                        # qq_41194307/client_lib
+                        download_url_master = "https://gitcode.net/" + url + "/-/archive/master/" + url.split("/")[1] + "-master.zip"
+                        # https://gitcode.net/qq_41194307/client_lib/-/archive/master/client_lib-master.zip
+                        url_ = url_ + "/-/refs/master/logs_tree/?format=json&offset=0"
                     else:
                         print("未知的更新仓库")
                         exit()
                 except:
                     print("URL错误，或许是不支持的URL")
                     exit()
+
                 # 伪装
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML,'
-                                         ' like Gecko) Chrome/64.0.3282.119 Safari/537.36'}
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, '
+                                         ' like Gecko) Chrome/107.0.0.0 Safari/537.36'}
                 try:
                     html=requests.get(url_,headers=headers)
                 except:
-                    print("无法链接到agit，可能是网络问题")
+                    print(f"无法链接到{url_type}，可能是网络问题")
                     exit()
                 html.encoding = "utf-8"
                 soup = BeautifulSoup(html.text,"html.parser")
-                out = soup.find_all("th",class_="text grey right age")
-                time_str = str(out).split("title=")[1].split("UTC")[0].split(",")[1]
-
-                #提前8H
-                time_data= datetime.datetime.strptime(time_str,' %d %b %Y %H:%M:%S ')
                 data = configparser.ConfigParser()
-                if not os.path.exists(f"{data_path}/Update/{i}/data.ini"):
-                    # 生成基本路径配置文件
-                    data['Data'] = {'date_utc' : f"{time_data}"}
-                    with open(f"{data_path}/Update/{i}/data.ini", 'w') as configfile:
-                            data.write(configfile)
-                    update_download(Streaming_download,url_type,download_url_master)
-                else:
 
-                    # 对比时间信息
-                    data.read(f"{data_path}/Update/{i}/data.ini")
-                    try:
+                # 对比时间信息
+                data.read(f"{data_path}/Update/{i}/data.ini")
+                try:
+                    if os.path.exists(f"{data_path}/Update/{i}/data.ini"):
                         update_data_file = datetime.datetime.strptime(get_config(data,"Data","date_utc"),
-                                                                      "%Y-%m-%d %H:%M:%S")
-                    except:
-                        print(f"{i}_Data信息出错")
-                        exit()
-                    print(time_data)
-                    print(update_data_file)
+                                                                        "%Y-%m-%d %H:%M:%S")
+                except:
+                    print(f"{i}_Data信息出错")
+                    exit()
+
+
+                # 开始判断使用平台
+                # Agit
+                if url_type == "agit":
+                    out = soup.find_all("th",class_="text grey right age")
+                    time_str = str(out).split("title=")[1].split("UTC")[0].split(",")[1]
+
+                    # 提前8H
+                    time_data= datetime.datetime.strptime(time_str,' %d %b %Y %H:%M:%S ')
+                    if not os.path.exists(f"{data_path}/Update/{i}/data.ini"):
+                        # 生成基本路径配置文件
+                        data['Data'] = {'date_utc' : f"{time_data}"}
+                        with open(f"{data_path}/Update/{i}/data.ini", 'w') as configfile:
+                                data.write(configfile)
+                        update_download(url_type,download_url_master)
+
                     if time_data > update_data_file:
                         data['Data'] = {'date_utc': f"{time_data}"}
                         with open(f"{data_path}/Update/{i}/data.ini", 'w') as configfile:
                             data.write(configfile)
-                        update_download(Streaming_download,url_type,download_url_master)
+                        update_download(url_type,download_url_master)
+                        
+
+                # Gitcode
+                if url_type == "gitcode":
+                    # 获取时间信息
+                    time_list = []
+                    commit_count = str(soup).count("committed_date")
+                    # 存在则对比时间信息
+                    try:
+                        # 获取Gitcode文件时间
+                        for j in range(0, int(commit_count)):
+                            time_data = datetime.datetime.strptime(
+                                str(soup).split("""committed_date":""")[j + 1].split(""","committer_name""")[0].strip("""
+                            ""
+                            """), "%Y-%m-%dT%H:%M:%S.000+08:00")
+                            time_list.append(time_data)
+                            bubbleSort(time_list)
+                        time_data = time_list[int(commit_count)-1]
+                    except:
+                        print("GItcode仓库文件不存在或获取时间信息错误")
+                        exit()
+
+                    # 不存在配置文件，生成更新配置文件
+                    if not os.path.exists(f"{data_path}/Update/{i}/data.ini"):
+                        data['Data'] = {'date_utc' : f"{time_data}"}
+                        with open(f"{data_path}/Update/{i}/data.ini", 'w') as configfile:
+                                data.write(configfile)
+                        update_download(url_type,download_url_master)
+                    else:
+
+                        # 存在则对比时间，判断是否进行更新
+                        data.read(f"{data_path}/Update/{i}/data.ini")
+                        if Streaming_download.lower() == "false":
+                            if time_data > update_data_file:
+                                update_download(url_type, download_url_master)
+                                data['Data'] = {'date_utc': f"{time_data}"}
+                                with open(f"{data_path}/Update/{i}/data.ini", 'w') as configfile:
+                                    data.write(configfile)
+                                update_download(url_type, download_url_master)
+                            pass
+
+
+def update_download(url_type,download_url_master):
+    # 非流式传输
+    # 从github/agit上获取必要的库
+    libs = ["7z.exe","7z.dll"]
+    for i in libs:
+        if not os.path.exists(f"{data_path}" + "/Lib/%s" % i):
+            if url_type == "agit":
+                lib = "https://agit.ai/Bt_Asker/DTAClient--Lib/raw/branch/master/"
+            elif url_type == "github":
+                lib = "https://github.com/AskeBt/client--libs/raw/main/"
+            elif url_type == "gitcode":
+                lib = "https://gitcode.net/qq_41194307/client_lib/-/raw/master/"
+            else:
+                print("更新源错误！")
+                exit()
+            download(f"{lib}%s" % i,f"{data_path}/Lib/%s" % i)
+
+    try:
+        download(download_url_master,f"{data_path}/data.zip")
+    except:
+        print("下载错误_可能是URL目标不正确")
+
+    # 解压安装资源
+    if os.path.exists(f"{data_path}/data.zip"):
+        unpack(f"{data_path}/data.zip",f"./{data_path}/temp/")
     else:
-        pass
-
-
-def update_download(Streaming_download,url_type,download_url_master):
-    if Streaming_download == "True":
-        # 流式传输
-        pass
-    else:
-        # 非流式传输
-        # 从github/agit上获取必要的库
-        libs = ["7z.exe","7z.dll"]
-        for i in libs:
-            if not os.path.exists(f"{data_path}" + "/Lib/%s" % i):
-                if url_type == "agit":
-                    lib = "https://agit.ai/Bt_Asker/DTAClient--Lib/raw/branch/master/"
-                elif url_type == "github":
-                    lib = "https://github.com/AskeBt/client--libs/raw/main/"
-                else:
-                    print("更新源错误！")
-                    exit()
-                download(f"{lib}%s" % i,f"{data_path}/Lib/%s" % i)
-
-        try:
-            download(download_url_master,f"{data_path}/data.zip")
-        except:
-            print("下载错误_可能是URL目标不正确")
-
-        # 解压安装资源
-        if os.path.exists(f"{data_path}/data.zip"):
-            unpack(f"{data_path}/data.zip",f"./{data_path}/temp/")
-        else:
-            print("无解压资源")
-        time.sleep(2)
-        if len(os.listdir(f"./{data_path}/temp/")) == 1:
-            zip_path = os.listdir(f"./{data_path}/temp/")[0]
-        shutil.copytree(f"{data_path}temp/{zip_path}/", './', dirs_exist_ok=True)
-        url="https://agit.ai/Bt_Asker/Client-P"
-        
-        # 删除下载资源
-        os.system('taskkill /f /im %s' % '7z.exe')
-        time.sleep(4)
-        if os.path.exists(f"{data_path}data.zip"):
-            os.remove(f"{data_path}data.zip")
-        if os.path.exists(f"{data_path}temp/{zip_path}"):
-            shutil.rmtree(f"{data_path}temp/{zip_path}")
-        print("更新完成")
+        print("无解压资源")
+    time.sleep(2)
+    if len(os.listdir(f"./{data_path}/temp/")) == 1:
+        zip_path = os.listdir(f"./{data_path}/temp/")[0]
+    shutil.copytree(f"{data_path}temp/{zip_path}/", './', dirs_exist_ok=True)
+    url="https://agit.ai/Bt_Asker/Client-P"
+    
+    # 删除下载资源
+    os.system('taskkill /f /im %s' % '7z.exe')
+    time.sleep(4)
+    if os.path.exists(f"{data_path}data.zip"):
+        os.remove(f"{data_path}data.zip")
+    if os.path.exists(f"{data_path}temp/{zip_path}"):
+        shutil.rmtree(f"{data_path}temp/{zip_path}")
+    print("更新完成")
 
 def debug_level(level):
     if level == "none":
@@ -282,18 +337,24 @@ if __name__ == "__main__":
     if not os.path.exists(data_path):
         os.makedirs(data_path)
     read_config()
+
     # Client+ 总控
     if Enable == "True":
         mkdir(client_folder)
+
         # 随机化运行
         movefile()
+
         # 开始游戏，等待后续步骤
         start_game()
         time.sleep(6)
 
+        # 选择清理debug
         debug_level(log_level)
         if update == "True":
             read_url()
+
+        # 获取服务器列表
         if Cnc_master_list_log == "True":
             cnc_info()
         user_command()
