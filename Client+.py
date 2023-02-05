@@ -1,4 +1,4 @@
-# Client+ v0.4
+# Client+ v0.5
 # By：Bt（Bilibili：Bt_Asker）
 # 适用于所有基于DTA客户端的RA2
 
@@ -35,7 +35,7 @@ def read_basic_path():
                         'data_path' : "./Resources/Client/manager/"}
             base["Author"] = {"bilibili" : "Bt_Asker",
                         "Bt" : "https://space.bilibili.com/326134780"}
-            base["Version"] = {"version": "v0.4Beta"}
+            base["Version"] = {"version": "v0.5Beta"}
             with open('base.ini', 'w') as configfile:
                 base.write(configfile)
     base.read('./base.ini')
