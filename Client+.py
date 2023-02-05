@@ -243,7 +243,6 @@ def read_url():
                         data.read(f"{data_path}/Update/{i}/data.ini")
                         if Streaming_download.lower() == "false":
                             if time_data > update_data_file:
-                                update_download(url_type, download_url_master)
                                 data['Data'] = {'date_utc': f"{time_data}"}
                                 with open(f"{data_path}/Update/{i}/data.ini", 'w') as configfile:
                                     data.write(configfile)
