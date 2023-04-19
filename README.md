@@ -1,4 +1,4 @@
-简体中文 [English](https://github.com/AskeBt/Client-Plus/blob/main/README_EN.md)
+简体中文 [English](README_EN.md)
 # Client-Plus
 为红色警戒（Red alert）的Cncnet DTA客户端进行拓展；在其基础上改进
 
