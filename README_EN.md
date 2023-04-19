@@ -1,3 +1,4 @@
+[简体中文](README.md) English
 # Client-Plus
 The extensions and improvement of CNCnet DTA Client for Ren Alert 2. 
 
