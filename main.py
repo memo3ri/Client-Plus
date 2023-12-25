@@ -47,12 +47,19 @@ class Resource(Config):
         """
         file_name = os.path.basename(urlparse(url).path)  # 从 URL 中获取文件名
         save_path = os.path.join(path, file_name)  # 将当前工作目录和文件名合并为保存路径
-
-        file_size = int(urlopen(url).info().get('Content-Length', -1))  # 获取下载文件的总大小
+        try:
+            file_size = int(urlopen(url).info().get('Content-Length', -1))  # 获取下载文件的总大小
+        except Exception as e:
+            print(e)
+            print('下载失败')
+            return False
         if os.path.exists(save_path):
             first_byte = os.path.getsize(save_path)  # 获取已经下载部分文件的大小
+            if os.path.getsize(save_path) == first_byte:
+                return True
         else:
             first_byte = 0
+
         header = {"Range": "bytes=%s-%s" % (first_byte, file_size)}  # 设置下载头
         try:
             req = requests.get(url, headers=header, stream=True)  # 请求下载文件剩下的部分
@@ -102,9 +109,23 @@ class Resource(Config):
 
         if not file_list:
             return {}
-        print(file_list)
+
+        def url_encode(string):
+            # URL转码
+            result = ""
+            for char in string:
+                if char == " ":
+                    result += "%20"
+                elif ord(char) < 128:
+                    result += char
+                else:
+                    encoded_char = char.encode('utf-8')
+                    hex_str = ''.join([f'%{byte:02X}' for byte in encoded_char])
+                    result += hex_str
+            return result
+
         file = file_list[random.randint(0, len(file_list) - 1)]
-        dl_url = f'{self.src_url}/-/raw/master/{file_type.lower()}/{file}?inline=false'
+        dl_url = f'{self.src_url}/-/raw/master/random/{file_type.lower()}/{url_encode(file)}?inline=false'
         return self._download(dl_url, os.path.join(self.main_path, file_type))
 
     @staticmethod
@@ -126,30 +147,32 @@ class Resource(Config):
         # 保存结果
         background.save(src_image_path)
 
-
-class Run(RandomFile, Resource):
-    def __init__(self):
-        super().__init__()
-        self.randomFile('mainmenubg', 'MainMenu\\mainmenubg.png')
-        self.randomFile('loadingscreen', 'loadingscreen.png')
-
+    def updateImage(self):
         files = os.listdir(os.path.join(self.main_path, 'UI\\'))
         file = files[random.randint(0, len(files) - 1)]
 
         self.layer_overlay(os.path.join(self.resources_path, 'loadingscreen.png'),
                            os.path.join(self.main_path, 'UI', file))
 
-        self.randomFile('chaoticimpulse', 'chaoticimpulse.wma')
+
+class Run(RandomFile, Resource):
+    def __init__(self):
+        super().__init__()
+        dc = {
+            'mainmenubg': 'MainMenu\\mainmenubg.png',
+            'loadingscreen': 'loadingscreen.png',
+            'chaoticimpulse': 'chaoticimpulse.wma'
+        }
+        for key, value in dc.items():
+            self.randomFile(key, value)
+
+        self.updateImage()
 
         os.system('start /high \".\\Resources\\clientdx.exe\"')
 
-        self.getRandomResources('mainmenubg')
-        self.getRandomResources('loadingscreen')
-        self.getRandomResources('chaoticimpulse')
-        self.getRandomResources('UI')
+        for string in ['chaoticimpulse']:
+            self.getRandomResources(string)
 
 
 if __name__ == '__main__':
     run = Run()
-# r = RandomFile()
-# r.run()
